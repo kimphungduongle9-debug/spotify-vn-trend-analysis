@@ -68,9 +68,16 @@ def render(project_data: dict) -> None:
     )
 
     missing_column.metric(
-        "Giá trị thiếu",
+        "Giá trị thiếu có chủ đích",
         f"{selected_data.isna().sum().sum():,}",
     )
+
+    if selected_dataset_name == "Dữ liệu đã làm sạch":
+        st.caption(
+            "Các giá trị thiếu còn lại chủ yếu thuộc cột rank_change "
+            "ở những bài mới hoặc quay lại bảng xếp hạng, "
+            "nên được giữ nguyên để phản ánh đúng ý nghĩa dữ liệu."
+        )
 
     st.write("")
 

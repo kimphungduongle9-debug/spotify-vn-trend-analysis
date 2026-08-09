@@ -13,7 +13,10 @@ from helpers import (
 )
 
 
-def render(potential_data: pd.DataFrame | None) -> None:
+def render(
+    potential_data: pd.DataFrame | None,
+    final_potential_data: pd.DataFrame | None,
+) -> None:
     """Hiển thị danh sách bài hát tiềm năng từ notebook."""
 
     render_page_header(
@@ -206,5 +209,118 @@ def render(potential_data: pd.DataFrame | None) -> None:
         label="⬇️ Tải danh sách bài hát tiềm năng",
         data=data.to_csv(index=False).encode("utf-8-sig"),
         file_name="potential_songs.csv",
+        mime="text/csv",
+    )
+    st.divider()
+
+    st.subheader("Kết hợp điểm tiềm năng và dự báo lượt nghe")
+
+    render_info_box(
+        "Backtest cho thấy điểm tiềm năng phù hợp hơn với vai trò "
+        "sàng lọc bài hát có khả năng duy trì trên Top 200, "
+        "chưa đủ để xem là công cụ dự đoán tăng lượt nghe. "
+        "Vì vậy, nhóm kết hợp điểm tiềm năng với dự báo "
+        "Linear Regression cho tuần 02/07/2026."
+    )
+
+    backtest_1, backtest_2 = st.columns(2)
+
+    backtest_1.metric(
+        "Top 10 còn trong Top 200 tuần sau",
+        "97.27%",
+    )
+
+    backtest_2.metric(
+        "Top 10 tăng lượt nghe tuần sau",
+        "34.55%",
+    )
+
+    if final_potential_data is None:
+        st.warning("Không tìm thấy file outputs/final_potential_songs.csv.")
+        return
+
+    if final_potential_data.empty:
+        st.info("Chưa có kết quả kết hợp cuối.")
+        return
+
+    final_data = final_potential_data.copy()
+
+    numeric_columns_final = [
+        "Hạng hiện tại",
+        "Số hạng tăng",
+        "Lượt nghe hiện tại",
+        "Lượt nghe dự báo 02/07",
+        "Tăng trưởng dự báo (%)",
+        "Điểm tiềm năng",
+    ]
+
+    for column in numeric_columns_final:
+        if column in final_data.columns:
+            final_data[column] = pd.to_numeric(
+                final_data[column],
+                errors="coerce",
+            )
+
+    st.write("")
+
+    kpi_1, kpi_2, kpi_3 = st.columns(3)
+
+    kpi_1.metric(
+        "Bài đang tăng hạng",
+        "22",
+    )
+
+    kpi_2.metric(
+        "Được dự báo tăng lượt nghe",
+        "0",
+    )
+
+    kpi_3.metric(
+        "Tăng trưởng dự báo tốt nhất",
+        "-0.43%",
+    )
+
+    st.caption(
+        "Kết quả cho thấy tăng hạng ở tuần hiện tại không đồng nghĩa "
+        "lượt nghe chắc chắn tiếp tục tăng ở tuần kế tiếp."
+    )
+
+    st.subheader("Top 10 bài hát đáng chú ý")
+
+    st.dataframe(
+        final_data,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "STT": st.column_config.NumberColumn(
+                format="%d",
+            ),
+            "Hạng hiện tại": st.column_config.NumberColumn(
+                format="%d",
+            ),
+            "Số hạng tăng": st.column_config.NumberColumn(
+                format="%.0f",
+            ),
+            "Lượt nghe hiện tại": st.column_config.NumberColumn(
+                format="%d",
+            ),
+            "Lượt nghe dự báo 02/07": st.column_config.NumberColumn(
+                format="%d",
+            ),
+            "Tăng trưởng dự báo (%)": st.column_config.NumberColumn(
+                format="%.2f%%",
+            ),
+            "Điểm tiềm năng": st.column_config.ProgressColumn(
+                min_value=0,
+                max_value=100,
+                format="%.2f",
+            ),
+        },
+    )
+
+    st.download_button(
+        label="⬇️ Tải kết quả kết hợp cuối",
+        data=final_data.to_csv(index=False).encode("utf-8-sig"),
+        file_name="final_potential_songs.csv",
         mime="text/csv",
     )

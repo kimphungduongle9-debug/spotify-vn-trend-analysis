@@ -92,7 +92,10 @@ elif selected_page == "Biến động":
     changes.render(filtered_data)
 
 elif selected_page == "Bài hát tiềm năng":
-    potential.render(project_data["potential"])
+    potential.render(
+        potential_data=project_data["potential"],
+        final_potential_data=project_data["final_potential"],
+    )
 
 elif selected_page == "Kết quả mô hình":
     model_results.render(

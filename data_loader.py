@@ -19,6 +19,10 @@ LINEAR_PREDICTIONS_PATH = OUTPUT_DIR / "linear_predictions.csv"
 RF_PREDICTIONS_PATH = OUTPUT_DIR / "random_forest_predictions.csv"
 POTENTIAL_SONGS_PATH = OUTPUT_DIR / "potential_songs.csv"
 
+FUTURE_PREDICTIONS_PATH = OUTPUT_DIR / "future_predictions_2026_07_02.csv"
+
+FINAL_POTENTIAL_SONGS_PATH = OUTPUT_DIR / "final_potential_songs.csv"
+
 
 DATE_COLUMNS = [
     "chart_week",
@@ -158,4 +162,6 @@ def load_project_data() -> dict:
         "linear_predictions": read_optional_csv(LINEAR_PREDICTIONS_PATH),
         "rf_predictions": read_optional_csv(RF_PREDICTIONS_PATH),
         "potential": read_optional_csv(POTENTIAL_SONGS_PATH),
+        "future_predictions": read_optional_csv(FUTURE_PREDICTIONS_PATH),
+        "final_potential": read_optional_csv(FINAL_POTENTIAL_SONGS_PATH),
     }
