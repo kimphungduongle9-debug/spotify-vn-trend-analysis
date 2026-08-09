@@ -20,7 +20,7 @@ def render(data: pd.DataFrame) -> None:
         title="Biến động bảng xếp hạng",
         description=(
             "Phân tích các bài hát tăng hạng, "
-            "tụt hạng và mới xuất hiện theo từng tuần."
+            "tụt hạng và mới xuất hiện trong phạm vi dữ liệu đã chọn."
         ),
         icon="📈",
     )
@@ -29,8 +29,19 @@ def render(data: pd.DataFrame) -> None:
         st.warning("Không có dữ liệu phù hợp với bộ lọc hiện tại.")
         return
 
+    # =====================================================
+    # XÁC ĐỊNH PHẠM VI PHÂN TÍCH
+    # Dữ liệu đã được lọc từ sidebar trước khi truyền vào đây
+    # =====================================================
+    analysis_data = data.copy()
+
+    analysis_data["rank_change"] = pd.to_numeric(
+        analysis_data["rank_change"],
+        errors="coerce",
+    )
+
     available_weeks = sorted(
-        data["chart_week"].dropna().unique(),
+        analysis_data["chart_week"].dropna().unique(),
         reverse=True,
     )
 
@@ -38,49 +49,60 @@ def render(data: pd.DataFrame) -> None:
         st.warning("Không tìm thấy dữ liệu tuần.")
         return
 
-    selected_week = st.selectbox(
-        "Chọn tuần cần phân tích",
-        options=available_weeks,
-        format_func=format_date,
-        key="changes_selected_week",
-    )
+    if len(available_weeks) == 1:
+        period_label = f"tuần {format_date(available_weeks[0])}"
 
-    week_data = data[data["chart_week"] == pd.Timestamp(selected_week)].copy()
+        render_info_box(
+            f"Đang phân tích biến động tại {period_label}. "
+            "Giá trị dương là tăng hạng, "
+            "giá trị âm là tụt hạng."
+        )
+    else:
+        period_label = f"toàn bộ {len(available_weeks)} tuần"
 
-    week_data["rank_change"] = pd.to_numeric(
-        week_data["rank_change"],
-        errors="coerce",
-    ).fillna(0)
+        render_info_box(
+            f"Đang phân tích biến động trên {period_label}. "
+            "Giá trị dương là tăng hạng, "
+            "giá trị âm là tụt hạng."
+        )
 
-    render_info_box(
-        "Đang phân tích biến động tại tuần "
-        f"{format_date(selected_week)}. "
-        "Giá trị dương là tăng hạng, "
-        "giá trị âm là tụt hạng."
-    )
+    # =====================================================
+    # PHÂN LOẠI BIẾN ĐỘNG
+    # =====================================================
+    rising_songs = analysis_data[analysis_data["rank_change"] > 0].copy()
 
-    rising_songs = week_data[week_data["rank_change"] > 0].copy()
+    falling_songs = analysis_data[analysis_data["rank_change"] < 0].copy()
 
-    falling_songs = week_data[week_data["rank_change"] < 0].copy()
+    new_entry_values = analysis_data["is_new_entry"].astype(str).str.strip().str.lower()
 
-    new_entry_values = week_data["is_new_entry"].astype(str).str.strip().str.lower()
+    new_songs = analysis_data[new_entry_values.isin(["true", "1", "yes"])].copy()
 
-    new_songs = week_data[new_entry_values.isin(["true", "1", "yes"])].copy()
-
+    # =====================================================
+    # KPI
+    # =====================================================
     metric_1, metric_2, metric_3 = st.columns(3)
 
+    if len(available_weeks) == 1:
+        rise_label = "Bài tăng hạng"
+        fall_label = "Bài tụt hạng"
+        new_label = "Bài mới/quay lại"
+    else:
+        rise_label = "Lượt tăng hạng"
+        fall_label = "Lượt tụt hạng"
+        new_label = "Lượt mới/quay lại"
+
     metric_1.metric(
-        "Bài tăng hạng",
+        rise_label,
         f"{len(rising_songs):,}",
     )
 
     metric_2.metric(
-        "Bài tụt hạng",
+        fall_label,
         f"{len(falling_songs):,}",
     )
 
     metric_3.metric(
-        "Bài mới/quay lại",
+        new_label,
         f"{len(new_songs):,}",
     )
 
@@ -98,14 +120,14 @@ def render(data: pd.DataFrame) -> None:
         ).sort_values("rank_change")
 
         if top_risers.empty:
-            st.info("Không có bài hát tăng hạng " "trong tuần đã chọn.")
+            st.info("Không có bài hát tăng hạng " "trong phạm vi đã chọn.")
         else:
             rising_figure = px.bar(
                 top_risers,
                 x="rank_change",
                 y="track_name",
                 orientation="h",
-                title="Top 10 bài tăng hạng mạnh",
+                title=(f"Top 10 bài tăng hạng mạnh - " f"{period_label}"),
                 color="rank_change",
                 color_continuous_scale=[
                     [0, "#DDD6FE"],
@@ -148,14 +170,14 @@ def render(data: pd.DataFrame) -> None:
         top_fallers = top_fallers.sort_values("Số hạng tụt")
 
         if top_fallers.empty:
-            st.info("Không có bài hát tụt hạng " "trong tuần đã chọn.")
+            st.info("Không có bài hát tụt hạng " "trong phạm vi đã chọn.")
         else:
             falling_figure = px.bar(
                 top_fallers,
                 x="Số hạng tụt",
                 y="track_name",
                 orientation="h",
-                title="Top 10 bài tụt hạng mạnh",
+                title=(f"Top 10 bài tụt hạng mạnh - " f"{period_label}"),
                 color="Số hạng tụt",
                 color_continuous_scale=[
                     [0, "#FCE7F3"],
@@ -190,31 +212,65 @@ def render(data: pd.DataFrame) -> None:
     st.subheader("Bài mới hoặc quay lại bảng xếp hạng")
 
     if new_songs.empty:
-        st.info("Không có bài mới hoặc quay lại " "trong tuần đã chọn.")
+        st.info("Không có bài mới hoặc quay lại " "trong phạm vi đã chọn.")
     else:
-        new_song_table = (
-            new_songs[
-                [
-                    "rank",
-                    "track_name",
-                    "artist_names",
-                    "genre",
-                    "streams",
-                    "weeks_on_chart",
-                ]
+        # Nếu xem nhiều tuần thì cần thêm cột Tuần
+        if len(available_weeks) > 1:
+            table_columns = [
+                "chart_week",
+                "rank",
+                "track_name",
+                "artist_names",
+                "genre",
+                "streams",
+                "weeks_on_chart",
             ]
-            .sort_values("rank")
-            .rename(
-                columns={
-                    "rank": "Hạng",
-                    "track_name": "Bài hát",
-                    "artist_names": "Nghệ sĩ",
-                    "genre": "Thể loại",
-                    "streams": "Lượt nghe",
-                    "weeks_on_chart": ("Số tuần trên BXH"),
-                }
+
+            new_song_table = (
+                new_songs[table_columns]
+                .sort_values(
+                    ["chart_week", "rank"],
+                    ascending=[False, True],
+                )
+                .rename(
+                    columns={
+                        "chart_week": "Tuần",
+                        "rank": "Hạng",
+                        "track_name": "Bài hát",
+                        "artist_names": "Nghệ sĩ",
+                        "genre": "Thể loại",
+                        "streams": "Lượt nghe",
+                        "weeks_on_chart": ("Số tuần trên BXH"),
+                    }
+                )
             )
-        )
+
+            new_song_table["Tuần"] = new_song_table["Tuần"].dt.strftime("%d/%m/%Y")
+
+        else:
+            table_columns = [
+                "rank",
+                "track_name",
+                "artist_names",
+                "genre",
+                "streams",
+                "weeks_on_chart",
+            ]
+
+            new_song_table = (
+                new_songs[table_columns]
+                .sort_values("rank")
+                .rename(
+                    columns={
+                        "rank": "Hạng",
+                        "track_name": "Bài hát",
+                        "artist_names": "Nghệ sĩ",
+                        "genre": "Thể loại",
+                        "streams": "Lượt nghe",
+                        "weeks_on_chart": ("Số tuần trên BXH"),
+                    }
+                )
+            )
 
         st.dataframe(
             new_song_table,
